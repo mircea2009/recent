@@ -1,0 +1,132 @@
+<?php
+function recent_form_alter(&$form, $form_state, $form_id) {
+  // content type edit
+  if ($form_id == "node_type_form") {
+  
+    // Create a fieldset that will be included in the vertical tab.
+    $form['recent'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Recent'),
+      '#collapsible' => TRUE,
+      '#collapsed' => FALSE,
+      '#tree' => TRUE,
+      
+      // Send this tab to the top of the list.
+      '#weight' => -99,
+      
+     
+      '#group' => 'additional_settings',
+      
+     
+    );
+
+    $form['recent']['enabled'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Include in recents'),
+      '#default_value' => variable_get('recent_'.$form['#node_type']->type,FALSE),
+    );
+  
+    $form['#submit'][] = 'recent_node_type_form_submit';
+    
+  }
+  
+}
+
+function recent_node_type_form_submit($form, &$form_state)
+{
+   if ($form_state['values']['recent']['enabled'] == '1')  
+      variable_set('recent_'.$form['#node_type']->type,TRUE); 
+    else
+	  variable_set('recent_'.$form['#node_type']->type,FALSE); 
+	}
+
+// create table vith visited nodes	
+function recent_schema()
+{
+    $schema['node_views'] = array(
+    'description' => t('nodes beeing viewed'),
+    'fields' => array(
+     'user_id' => array(
+      'description' => t('user id'),
+      'type' => 'int',
+      'not null' => true,
+      ), 
+     'node_id' => array(
+       'description' => t('node id'),
+       'type' => 'int',
+       'not null' => true,
+      ),
+      'timestamp' => array(
+        'description' => t('time stamp'),
+        'type' => 'int',
+        'not null' => true,
+      ),
+    ),
+	);
+	return $schema;
+}
+
+// write records to new table when a node is viewed
+
+
+function recent_node_view_alter(&$build)
+{
+
+
+$isTrackable = variable_get('recent_'.$build['#node']->type,FALSE);
+if ($isTrackable) 
+ {
+  global $user;
+  if ($user->uid != 0 && $build['#node']->nid != 0 )
+   {
+    $record = (object) NULL;
+    $record->user_id = $user->uid;
+	$record->node_id = $build['#node']->nid;
+    $record->timestamp = strtotime('now');
+    drupal_write_record('node_views',$record);  
+	}
+ }
+}
+
+
+// show recently viewed nodes titles within a block
+
+function recent_block_info() {
+  $blocks['my-block-id'] = array(
+    'info' => t('Recently viewed'),
+  );
+  return $blocks;
+}
+ 
+/**
+ * Implementation of hook_block_view().
+ */
+function recent_block_view($delta='') {
+  $block = array();
+  switch ($delta) {
+    case 'my-block-id':
+      $block['subject'] = t('Recently viewed');
+      $block['content'] = recent_contents();
+      break;
+  }
+  return $block;
+}
+ 
+/**
+ * custom html block
+ * @return string
+ */
+function recent_contents() {
+ global $user;
+$result = db_query('SELECT node_id, max(timestamp) as most_recent FROM {node_views}  WHERE user_id = :uid GROUP BY node_id ORDER BY most_recent DESC LIMIT 5', array(':uid' => $user->uid));
+
+$output = '';
+
+foreach($result as $record) {
+$node = node_load($record->node_id);
+  $output.= '<a href = "/node/' . $record->node_id . '">' . $node->title .'</a><br>';
+}
+  return $output;
+}
+
+

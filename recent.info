@@ -1,0 +1,6 @@
+name = recent
+description = recent nodes
+package = Recent
+version = VERSION
+core = 7.x
+files[] = recent.module
