@@ -19,7 +19,7 @@ function recent_form_alter(&$form, $form_state, $form_id) {
       
      
     );
-
+// salut mircea
     $form['recent']['enabled'] = array(
       '#type' => 'checkbox',
       '#title' => t('Include in recents'),
